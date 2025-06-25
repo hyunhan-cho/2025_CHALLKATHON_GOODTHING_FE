@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,24 +10,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const KBO_TEAMS = [
-    { id: '1', name: '두산 베어스' },
-    { id: '2', name: 'LG 트윈스' },
-    { id: '3', name: 'SSG 랜더스' },
-    { id: '4', name: '키움 히어로즈' },
-    { id: '5', name: 'KIA 타이거즈' },
-    { id: '6', name: '삼성 라이온즈' },
-    { id: '7', name: '롯데 자이언츠' },
-    { id: '8', name: '한화 이글스' },
-    { id: '9', name: 'NC 다이노스' },
-    { id: '10', name: 'KT 위즈' },
-];
+import { useKboTeams } from '@/components/kbo-teams'; // 실제 팀 목록을 불러오는 Hook
+import { registerUser } from '@/lib/api'; // API 함수 임포트
 
 export default function SignupPage() {
+    const router = useRouter();
     const [role, setRole] = useState('senior');
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 백엔드에서 실제 팀 목록을 가져옵니다.
+    const { teams, isLoading: teamsLoading, error: teamsError } = useKboTeams();
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -38,7 +32,8 @@ export default function SignupPage() {
         const password = formData.get('password') as string;
         const nickname = formData.get('nickname') as string;
 
-        const favorite_team_to_send = selectedTeamId === '없음' ? null : selectedTeamId;
+        // '없음'을 선택하면 null로, 아니면 선택된 팀 ID를 전송
+        const favorite_team_to_send = selectedTeamId === '없음' || !selectedTeamId ? null : selectedTeamId;
 
         if (!name || !phone || !password || !nickname) {
             alert('모든 필수 정보를 입력해주세요.');
@@ -53,53 +48,28 @@ export default function SignupPage() {
         }
 
         try {
-            const response = await fetch('http://localhost:8000/api/auth/signup/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name,
-                    phone,
-                    role,
-                    password,
-                    nickname,
-                    favorite_team: favorite_team_to_send,
-                }),
+            // API 함수를 사용하여 회원가입 요청
+            await registerUser({
+                name,
+                phone,
+                role,
+                password,
+                nickname,
+                favorite_team: favorite_team_to_send,
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                let errorMessage = '회원가입 실패';
-
-                if (errorData) {
-                    if (
-                        errorData.phone &&
-                        Array.isArray(errorData.phone) &&
-                        errorData.phone.includes('This field must be unique.')
-                    ) {
-                        errorMessage = '이미 가입된 전화번호입니다.';
-                    } else if (errorData.role) {
-                        errorMessage = '역할 선택이 올바르지 않습니다.';
-                    } else if (errorData.password) {
-                        errorMessage = `비밀번호 오류: ${
-                            Array.isArray(errorData.password) ? errorData.password.join(', ') : errorData.password
-                        }`;
-                    } else if (errorData.detail) {
-                        errorMessage = errorData.detail;
-                    } else if (typeof errorData === 'object') {
-                        errorMessage = Object.values(errorData).flat().join(', ');
-                    }
-                }
-                throw new Error(errorMessage);
-            }
-
-            alert('회원가입에 성공했습니다! 이제 로그인 페이지로 이동하여 로그인할 수 있습니다.');
+            alert('회원가입에 성공했습니다! 로그인 페이지로 이동합니다.');
+            router.push('/login'); // 회원가입 성공 후 로그인 페이지로 이동
         } catch (error: any) {
-            console.error('회원가입 중 에러 발생:', error.message);
-            alert(`회원가입 실패: ${error.message}`);
+            console.error('회원가입 중 에러 발생:', error);
+            const errorMessage =
+                error.response?.data?.favorite_team?.[0] || // favorite_team 관련 에러 메시지 우선 처리
+                error.response?.data?.phone?.[0] || // phone 관련 에러
+                error.response?.data?.detail ||
+                '회원가입 중 오류가 발생했습니다.';
+            alert(`회원가입 실패: ${errorMessage}`);
         } finally {
-            setIsSubmitting(false); // 제출 완료
+            setIsSubmitting(false);
         }
     };
 
@@ -149,6 +119,7 @@ export default function SignupPage() {
                                 placeholder="********"
                                 className="h-14 text-lg px-4"
                                 required
+                                minLength={6}
                             />
                         </div>
                         <div className="space-y-2">
@@ -188,18 +159,27 @@ export default function SignupPage() {
                                 응원팀 (선택 사항)
                             </Label>
                             <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
-                                <SelectTrigger className="w-full h-14 text-lg px-4">
+                                <SelectTrigger className="w-full h-14 text-lg px-4" disabled={teamsLoading || !!teamsError}>
                                     <SelectValue placeholder="응원하는 팀을 선택해주세요" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="없음">선택 안 함</SelectItem>
-                                    {KBO_TEAMS.map((team) => (
-                                        <SelectItem key={team.id} value={team.id}>
-                                            {team.name}
-                                        </SelectItem>
-                                    ))}
+                                    {teamsLoading ? (
+                                        <SelectItem value="loading" disabled>팀 목록을 불러오는 중...</SelectItem>
+                                    ) : teamsError ? (
+                                        <SelectItem value="error" disabled>팀 목록 로딩 실패</SelectItem>
+                                    ) : (
+                                        <>
+                                            <SelectItem value="없음">선택 안 함</SelectItem>
+                                            {teams.map((team) => (
+                                                <SelectItem key={team.id} value={String(team.id)}>
+                                                    {team.name}
+                                                </SelectItem>
+                                            ))}
+                                        </>
+                                    )}
                                 </SelectContent>
                             </Select>
+                            {teamsError && <p className="text-red-500 text-sm mt-1">{teamsError}</p>}
                         </div>
 
                         <Button
@@ -213,7 +193,6 @@ export default function SignupPage() {
                 </CardContent>
                 <CardFooter className="flex flex-col items-center gap-4 pt-6">
                     <p className="text-md text-gray-600">이미 계정이 있으신가요?</p>
-
                     <a href="/login" className="w-full">
                         <Button
                             variant="outline"
@@ -221,10 +200,6 @@ export default function SignupPage() {
                         >
                             로그인
                         </Button>
-                    </a>
-
-                    <a href="#" className="text-md text-brand-navy hover:underline mt-2">
-                        아이디/비밀번호 찾기
                     </a>
                 </CardFooter>
             </Card>

@@ -1,19 +1,18 @@
 'use client';
 
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useKboTeams } from '@/components/kbo-teams'; // 수정된 useKboTeams Hook 임포트
-import React from 'react'; // React 임포트
+import { useKboTeams } from '@/components/kbo-teams';
 
 export default function SelectTeamPage() {
     const router = useRouter();
-    const { teams, isLoading, error } = useKboTeams(); // useKboTeams Hook 사용
+    const { teams, isLoading, error } = useKboTeams();
 
+    // 팀 선택 시 teamId를 문자열로 받아 처리합니다.
     const handleTeamSelect = (teamId: string) => {
-        // team.id만 받도록 수정
-        // Store selected team (e.g., in state management or pass via query params)
         console.log('Selected team ID:', teamId);
         router.push(`/senior/select-date?teamId=${teamId}`);
     };
@@ -49,12 +48,13 @@ export default function SelectTeamPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
                 {teams.map(
                     (
-                        team // KBO_TEAMS 대신 teams 사용
+                        team
                     ) => (
                         <Card
                             key={team.id}
                             className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer group"
-                            onClick={() => handleTeamSelect(team.id)} // team.id만 전달
+                            // team.id(숫자)를 문자열로 변환하여 오류를 해결합니다.
+                            onClick={() => handleTeamSelect(String(team.id))}
                         >
                             <CardContent className="p-0 flex flex-col items-center justify-center aspect-square">
                                 <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-3">
