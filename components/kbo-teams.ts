@@ -1,5 +1,8 @@
+// components/kbo-teams.ts
+'use client';
+
 import { useEffect, useState } from 'react';
-import { getKboTeams, KboTeam } from '@/lib/api';
+import { getKboTeams, KboTeam } from '@/lib/api'; // lib/api에서 KboTeam 및 getKboTeams 임포트
 
 interface UseKboTeamsResult {
     teams: KboTeam[];
@@ -21,11 +24,13 @@ export const useKboTeams = (): UseKboTeamsResult => {
         try {
             setIsLoading(true);
             setError(null);
-            const data = await getKboTeams(); // API 호출
+            const data = await getKboTeams(); // lib/api에서 임포트한 함수 호출
             setTeams(data);
         } catch (err: any) {
             console.error('KBO 팀 목록을 불러오는 데 실패했습니다:', err);
-            setError(err.response?.data?.message || 'KBO 팀 목록을 불러오는데 실패했습니다.');
+            // AxiosError 처리. lib/api.ts의 인터셉터에서 이미 처리되므로 간단하게 메시지 전달.
+            setError(err.message || 'KBO 팀 목록을 불러오는데 실패했습니다.'); // err.response?.data?.message 대신 err.message 사용
+            setTeams([]);
         } finally {
             setIsLoading(false);
         }
@@ -33,7 +38,7 @@ export const useKboTeams = (): UseKboTeamsResult => {
 
     useEffect(() => {
         fetchTeams();
-    }, []); // 컴포넌트가 처음 마운트될 때 한 번만 실행
+    }, []);
 
     return { teams, isLoading, error, refetch: fetchTeams };
 };

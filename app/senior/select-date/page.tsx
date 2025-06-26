@@ -8,14 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { useKboTeams } from '@/components/kbo-teams';
-import { createReservationRequest } from '@/lib/api';
+
+import { createHelpRequest } from '@/lib/api';
 
 export default function SelectDatePage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const teamId = searchParams.get('teamId');
+
+    const teamIdParam = searchParams.get('teamId');
+    const teamId = teamIdParam ? parseInt(teamIdParam, 10) : undefined; // teamId를 숫자로 변환
 
     const { teams, isLoading: teamsLoading, error: teamsError } = useKboTeams();
+
     const selectedTeam = teams.find((t) => t.id === teamId);
 
     const [date, setDate] = useState<Date | undefined>(new Date());
@@ -47,12 +51,12 @@ export default function SelectDatePage() {
         try {
             const newRequest = {
                 seniorId: seniorId,
-                teamId: selectedTeam.id,
+                teamId: String(selectedTeam.id),
                 gameDate: date.toISOString().split('T')[0],
                 numberOfTickets: numberOfTickets,
             };
 
-            await createReservationRequest(newRequest);
+            await createHelpRequest(newRequest);
 
             alert(
                 `요청이 성공적으로 접수되었습니다! ${
@@ -62,6 +66,7 @@ export default function SelectDatePage() {
             router.push('/senior/my-page');
         } catch (error: any) {
             console.error('예매 요청 중 오류 발생:', error);
+
             alert(error.response?.data?.message || '예매 요청에 실패했습니다. 다시 시도해주세요.');
         } finally {
             setIsSubmitting(false);
@@ -76,7 +81,7 @@ export default function SelectDatePage() {
         return <p className="text-center text-xl py-10 text-red-600">{teamsError}</p>;
     }
 
-    if (!selectedTeam) {
+    if (teamId === undefined || !selectedTeam) {
         return (
             <p className="text-center text-xl py-10">
                 잘못된 접근입니다. 팀을 먼저 선택해주세요.
@@ -136,7 +141,7 @@ export default function SelectDatePage() {
                             onClick={handleSubmit}
                             size="lg"
                             className="text-lg bg-brand-navy hover:bg-brand-navy-light text-white w-full sm:w-auto"
-                            disabled={isSubmitting} // 제출 중 버튼 비활성화
+                            disabled={isSubmitting}
                         >
                             {isSubmitting ? '요청 중...' : '이 내용으로 도움 요청하기'}
                         </Button>

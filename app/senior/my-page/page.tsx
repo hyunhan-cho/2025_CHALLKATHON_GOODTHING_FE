@@ -15,7 +15,16 @@ import {
     UsersIcon,
     UserCircle,
 } from 'lucide-react';
-import { getSeniorReservationRequests, ReservationRequest, RequestStatus } from '@/lib/api'; // 새로운 API 함수와 인터페이스 임포트
+
+import { getMySeniorRequests, HelpRequest } from '@/lib/api';
+
+type RequestStatus =
+    | 'WAITING_FOR_HELPER'
+    | 'HELPER_MATCHED'
+    | 'TICKET_PROPOSED'
+    | 'SEAT_CONFIRMED'
+    | 'COMPLETED'
+    | 'CANCELLED';
 
 const statusMapping: {
     [key in RequestStatus]: {
@@ -68,8 +77,8 @@ const statusMapping: {
 };
 
 function StatusIcon({ status }: { status: RequestStatus }) {
-    const IconComponent = statusMapping[status]?.icon || Hourglass; // Fallback icon
-    // Animate spin for HELPER_MATCHED status
+    const IconComponent = statusMapping[status]?.icon || Hourglass;
+
     const isSpinning = status === 'HELPER_MATCHED';
     return (
         <IconComponent
@@ -80,7 +89,7 @@ function StatusIcon({ status }: { status: RequestStatus }) {
 }
 
 export default function SeniorMyPage() {
-    const [requests, setRequests] = useState<ReservationRequest[]>([]);
+    const [requests, setRequests] = useState<HelpRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -89,8 +98,10 @@ export default function SeniorMyPage() {
             try {
                 setIsLoading(true);
                 setError(null);
-                const data = await getSeniorReservationRequests();
-                setRequests(data);
+
+                const data = await getMySeniorRequests();
+
+                setRequests(data.filter((req: any) => Object.keys(statusMapping).includes(req.status)));
             } catch (err: any) {
                 console.error('예매 요청 목록을 불러오는 중 오류 발생:', err);
                 setError(err.response?.data?.message || '예매 요청 목록을 불러오는데 실패했습니다.');
@@ -133,7 +144,7 @@ export default function SeniorMyPage() {
                 {currentRequests.length > 0 ? (
                     <div className="space-y-6">
                         {currentRequests.map((req) => {
-                            const statusInfo = statusMapping[req.status];
+                            const statusInfo = statusMapping[req.status as RequestStatus];
                             if (!statusInfo) return null;
 
                             const CardHeaderBg = statusInfo.bgColorClass || 'bg-slate-50';
@@ -148,7 +159,7 @@ export default function SeniorMyPage() {
                                                 </CardTitle>
                                                 <div className="text-md text-gray-700 space-y-1">
                                                     <p className="flex items-center gap-2">
-                                                        <CalendarDays size={18} /> {req.matchDate}
+                                                        <CalendarDays size={18} /> {req.gameDate}{' '}
                                                     </p>
                                                     <p className="flex items-center gap-2">
                                                         <UsersIcon size={18} /> {req.numberOfTickets}매
@@ -161,7 +172,7 @@ export default function SeniorMyPage() {
                                                 </div>
                                             </div>
                                             <div className="text-center">
-                                                <StatusIcon status={req.status} />
+                                                <StatusIcon status={req.status as RequestStatus} />
                                                 <p className={`mt-1 text-sm font-semibold ${statusInfo.colorClass}`}>
                                                     {statusInfo.statusText}
                                                 </p>
@@ -206,8 +217,8 @@ export default function SeniorMyPage() {
                 {pastRequests.length > 0 ? (
                     <div className="space-y-4">
                         {pastRequests.map((req) => {
-                            const statusInfo = statusMapping[req.status];
-                            if (!statusInfo) return null; // 알 수 없는 상태는 렌더링하지 않음
+                            const statusInfo = statusMapping[req.status as RequestStatus];
+                            if (!statusInfo) return null;
 
                             return (
                                 <Card key={req.id} className="shadow-md bg-gray-100">
@@ -215,7 +226,7 @@ export default function SeniorMyPage() {
                                         <div>
                                             <p className="text-xl font-semibold text-gray-800">{req.teamName}</p>
                                             <p className="text-md text-gray-600">
-                                                {req.matchDate} / {req.numberOfTickets}매
+                                                {req.gameDate} / {req.numberOfTickets}매{' '}
                                             </p>
                                             {req.helperName && (
                                                 <p className="text-sm text-gray-500">도움주신 헬퍼: {req.helperName}</p>

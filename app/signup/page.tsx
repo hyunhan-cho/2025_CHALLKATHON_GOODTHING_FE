@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useKboTeams } from '@/components/kbo-teams'; // 실제 팀 목록을 불러오는 Hook
-import { registerUser } from '@/lib/api'; // API 함수 임포트
+import { useKboTeams } from '@/components/kbo-teams';
+import { registerUser } from '@/lib/api';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -19,7 +19,6 @@ export default function SignupPage() {
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 백엔드에서 실제 팀 목록을 가져옵니다.
     const { teams, isLoading: teamsLoading, error: teamsError } = useKboTeams();
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -32,7 +31,6 @@ export default function SignupPage() {
         const password = formData.get('password') as string;
         const nickname = formData.get('nickname') as string;
 
-        // '없음'을 선택하면 null로, 아니면 선택된 팀 ID를 전송
         const favorite_team_to_send = selectedTeamId === '없음' || !selectedTeamId ? null : selectedTeamId;
 
         if (!name || !phone || !password || !nickname) {
@@ -48,7 +46,6 @@ export default function SignupPage() {
         }
 
         try {
-            // API 함수를 사용하여 회원가입 요청
             await registerUser({
                 name,
                 phone,
@@ -59,12 +56,12 @@ export default function SignupPage() {
             });
 
             alert('회원가입에 성공했습니다! 로그인 페이지로 이동합니다.');
-            router.push('/login'); // 회원가입 성공 후 로그인 페이지로 이동
+            router.push('/login');
         } catch (error: any) {
             console.error('회원가입 중 에러 발생:', error);
             const errorMessage =
-                error.response?.data?.favorite_team?.[0] || // favorite_team 관련 에러 메시지 우선 처리
-                error.response?.data?.phone?.[0] || // phone 관련 에러
+                error.response?.data?.favorite_team?.[0] ||
+                error.response?.data?.phone?.[0] ||
                 error.response?.data?.detail ||
                 '회원가입 중 오류가 발생했습니다.';
             alert(`회원가입 실패: ${errorMessage}`);
@@ -159,14 +156,21 @@ export default function SignupPage() {
                                 응원팀 (선택 사항)
                             </Label>
                             <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
-                                <SelectTrigger className="w-full h-14 text-lg px-4" disabled={teamsLoading || !!teamsError}>
+                                <SelectTrigger
+                                    className="w-full h-14 text-lg px-4"
+                                    disabled={teamsLoading || !!teamsError}
+                                >
                                     <SelectValue placeholder="응원하는 팀을 선택해주세요" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {teamsLoading ? (
-                                        <SelectItem value="loading" disabled>팀 목록을 불러오는 중...</SelectItem>
+                                        <SelectItem value="loading" disabled>
+                                            팀 목록을 불러오는 중...
+                                        </SelectItem>
                                     ) : teamsError ? (
-                                        <SelectItem value="error" disabled>팀 목록 로딩 실패</SelectItem>
+                                        <SelectItem value="error" disabled>
+                                            팀 목록 로딩 실패
+                                        </SelectItem>
                                     ) : (
                                         <>
                                             <SelectItem value="없음">선택 안 함</SelectItem>

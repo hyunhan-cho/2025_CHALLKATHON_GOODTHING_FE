@@ -9,7 +9,7 @@ import { jwtDecode } from 'jwt-decode';
 
 export default function SiteHeader() {
     const router = useRouter();
-    // 로그인 상태를 관리하는 state
+
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [userRole, setUserRole] = useState('senior');
 
@@ -53,7 +53,6 @@ export default function SiteHeader() {
                 </Link>
                 <nav className="flex items-center gap-6">
                     {isAuthenticated ? (
-                        // 로그인 되어 있을 때: 마이페이지와 로그아웃 버튼 표시
                         <>
                             <Link
                                 href={userRole === 'senior' ? '/senior/my-page' : '/helper/my-page'}
@@ -67,7 +66,6 @@ export default function SiteHeader() {
                             </button>
                         </>
                     ) : (
-                        // 로그인 되어 있지 않을 때: 로그인 / 회원가입 버튼 표시
                         <Link href="/login" className="text-lg hover:text-brand-sky transition-colors">
                             로그인 / 회원가입
                         </Link>
