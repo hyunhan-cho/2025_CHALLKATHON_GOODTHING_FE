@@ -1,3 +1,4 @@
+// app/helper/request/[requestId]/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -16,13 +17,15 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
-import { getHelpRequestDetails, HelpRequest } from '@/lib/api';
+// 수정된 부분: RawHelpRequestResponse와 HelpRequest 인터페이스 임포트
+import { getHelpRequestDetails, HelpRequest, RawHelpRequestResponse, GameDetail } from '@/lib/api';
 
 const statusMap = {
     REQUESTED: { text: '요청 접수', color: 'bg-gray-500', step: 1 },
+    WAITING_FOR_HELPER: { text: '헬퍼 배정 대기 중', color: 'bg-yellow-500', step: 1 },
     IN_PROGRESS: { text: '도움 진행 중', color: 'bg-blue-500', step: 2 },
     TICKET_PROPOSED: { text: '티켓 정보 전달 완료', color: 'bg-orange-500', step: 3 },
-    SEAT_CONFIRMED: { text: '좌석 확정', color: 'bg-purple-500', step: 4 },
+    SEAT_CONFIRMED: { text: '좌석 확정! 경기 당일 만나요', color: 'bg-purple-500', step: 4 },
     COMPLETED: { text: '도움 완료', color: 'bg-green-500', step: 5 },
 } as const;
 
@@ -35,48 +38,70 @@ export default function HelperRequestDetailPage() {
     const params = useParams();
     const requestId = params.requestId as string;
 
-    const [requestDetails, setRequestDetails] = useState<HelpRequest | null>(null);
+    const [reservationDetails, setReservationDetails] = useState<HelpRequest | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchDetails = async () => {
+        const fetchTicketDetails = async () => {
             if (!requestId) {
                 setIsLoading(false);
-                setError('요청 ID가 제공되지 않았습니다.');
+                setError('확인할 요청 ID가 없습니다.');
                 return;
             }
             try {
                 setIsLoading(true);
                 setError(null);
+                // getHelpRequestDetails가 RawHelpRequestResponse를 반환합니다.
+                const data: RawHelpRequestResponse = await getHelpRequestDetails(requestId);
+                console.log('API로부터 받은 요청 상세 정보:', data);
 
-                const data = await getHelpRequestDetails(requestId);
+                // game 정보 처리를 위한 변수 초기화
+                let teamNameValue: string = '정보 없음';
+                let gameDateValue: string = '정보 없음';
+                let gameTimeValue: string | undefined = undefined;
 
-                if (data.status && Object.keys(statusMap).includes(data.status as RequestStatus)) {
-                    setRequestDetails(data);
+                // TODO: 백엔드에서 game이 객체로 올 경우, 또는 game ID로 상세 정보를 조회하는 API가 있다면
+                // 이 곳에서 해당 API를 호출하여 teamName, gameDate, gameTime을 채워야 합니다.
+                // 현재 데이터(game: 2)로는 직접 팀명, 날짜를 알 수 없습니다.
+                // 따라서 아래 mappedData의 teamName, gameDate, gameTime은 "정보 없음"으로 표시됩니다.
+
+                // 백엔드 데이터 구조와 프론트엔드 인터페이스를 매핑
+                const mappedData: HelpRequest = {
+                    id: String(data.requestId),
+                    seniorFanName: data.userId.name,
+                    teamName: teamNameValue, // 현재는 "정보 없음"
+                    gameDate: gameDateValue, // 현재는 "정보 없음"
+                    gameTime: gameTimeValue, // 현재는 undefined
+                    numberOfTickets: data.numberOfTickets,
+                    notes: data.additionalInfo || undefined, // additionalInfo를 notes로 매핑, 빈 문자열이면 undefined
+                    contactPreference: data.userId.phone ? 'phone' : 'chat', // 전화번호 있으면 'phone', 없으면 'chat'
+                    phoneNumber: data.userId.phone, // userId.phone을 phoneNumber로 매핑
+                    status: data.status, // 원본 status 그대로 사용
+                    helperName: undefined, // 현재 데이터에 없음
+                };
+
+                if (mappedData.status && Object.keys(statusMap).includes(mappedData.status as RequestStatus)) {
+                    setReservationDetails(mappedData);
                 } else {
-                    console.warn(`백엔드에서 알 수 없는 요청 상태를 받았습니다: ${data.status}`);
-
-                    setRequestDetails(data);
+                    console.warn(`백엔드에서 알 수 없는 요청 상태를 받았습니다: ${mappedData.status}`);
+                    setReservationDetails(mappedData);
                 }
             } catch (err: any) {
-                console.error(`ID ${requestId}의 요청 상세 정보를 불러오는 중 오류 발생:`, err);
-                setError(
-                    err.response?.data?.message ||
-                        `요청 정보를 불러오는데 실패했습니다: ${err.message || '알 수 없는 오류'}`
-                );
+                console.error('티켓 예매 정보를 불러오는 중 오류 발생:', err);
+                setError(err.response?.data?.message || '티켓 예매 정보를 불러오는데 실패했습니다.');
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchDetails();
+        fetchTicketDetails();
     }, [requestId]);
 
     const handleMarkAsHelped = async () => {
-        if (!requestDetails) return;
+        if (!reservationDetails) return;
 
-        alert(`"${requestDetails.seniorFanName}"님에게 티켓 정보를 전달하는 화면으로 이동합니다. (구현 필요)`);
+        alert(`"${reservationDetails.seniorFanName}"님에게 티켓 정보를 전달하는 화면으로 이동합니다. (구현 필요)`);
 
         setTimeout(() => {
             alert('티켓 정보 전달이 시뮬레이션되었으며, 상태가 업데이트되었습니다.');
@@ -85,9 +110,9 @@ export default function HelperRequestDetailPage() {
     };
 
     const handleContact = () => {
-        if (requestDetails?.contactPreference === 'phone' && requestDetails.phoneNumber) {
-            alert(`전화 걸기: ${requestDetails.phoneNumber}`);
-        } else if (requestDetails?.contactPreference === 'chat') {
+        if (reservationDetails?.contactPreference === 'phone' && reservationDetails.phoneNumber) {
+            alert(`전화 걸기: ${reservationDetails.phoneNumber}`);
+        } else if (reservationDetails?.contactPreference === 'chat') {
             alert('채팅 기능은 현재 준비 중입니다. (구현 필요)');
         } else {
             alert('연락처 정보가 없거나 선호하는 연락 방법이 지정되지 않았습니다.');
@@ -115,7 +140,7 @@ export default function HelperRequestDetailPage() {
         );
     }
 
-    if (!requestDetails) {
+    if (!reservationDetails) {
         return (
             <div className="text-center py-10">
                 <p className="text-xl text-red-600 mb-6">요청 정보를 찾을 수 없습니다.</p>
@@ -128,11 +153,18 @@ export default function HelperRequestDetailPage() {
         );
     }
 
-    const currentStatusInfo = statusMap[requestDetails.status as RequestStatus] || {
-        text: '알 수 없음',
-        color: 'bg-gray-400',
-        step: 0,
-    };
+    const currentStatusInfo = reservationDetails?.status
+        ? statusMap[reservationDetails.status as RequestStatus] || {
+              text: '알 수 없음',
+              color: 'bg-gray-400',
+              step: 0,
+          }
+        : {
+              text: '알 수 없음',
+              color: 'bg-gray-400',
+              step: 0,
+          };
+
     const progressPercentage = (currentStatusInfo.step / totalSteps) * 100;
 
     return (
@@ -150,7 +182,7 @@ export default function HelperRequestDetailPage() {
                         </span>
                     </div>
                     <CardTitle className="text-3xl text-brand-navy flex items-center gap-3">
-                        <UserCircle2 size={36} /> {requestDetails.seniorFanName}님의 예매 요청
+                        <UserCircle2 size={36} /> {reservationDetails?.seniorFanName}님의 예매 요청
                     </CardTitle>
                     <CardDescription className="text-lg pt-1">
                         아래 요청 세부사항을 확인하고 도움을 진행해주세요.
@@ -181,7 +213,10 @@ export default function HelperRequestDetailPage() {
                             <TicketIcon className="text-brand-navy mt-1 flex-shrink-0" size={24} />
                             <div>
                                 <span className="font-semibold text-gray-700">응원팀:</span>
-                                <span className="ml-2 text-brand-navy-light font-bold">{requestDetails.teamName}</span>
+                                <span className="ml-2 text-brand-navy-light font-bold">
+                                    {reservationDetails?.teamName}
+                                </span>{' '}
+                                {/* 이제 mappedData에서 가져옵니다. */}
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -189,8 +224,8 @@ export default function HelperRequestDetailPage() {
                             <div>
                                 <span className="font-semibold text-gray-700">희망 경기일:</span>
                                 <span className="ml-2 text-brand-navy-light font-bold">
-                                    {requestDetails.gameDate}{' '}
-                                    {requestDetails.gameTime && `(${requestDetails.gameTime})`}
+                                    {reservationDetails?.gameDate} {/* 이제 mappedData에서 가져옵니다. */}
+                                    {reservationDetails?.gameTime && `(${reservationDetails.gameTime})`}
                                 </span>
                             </div>
                         </div>
@@ -199,26 +234,26 @@ export default function HelperRequestDetailPage() {
                             <div>
                                 <span className="font-semibold text-gray-700">필요 티켓 수:</span>
                                 <span className="ml-2 text-brand-navy-light font-bold">
-                                    {requestDetails.numberOfTickets}매
+                                    {reservationDetails?.numberOfTickets}매
                                 </span>
                             </div>
                         </div>
-                        {requestDetails.notes && (
+                        {reservationDetails?.notes && (
                             <div className="flex items-start gap-3 p-3 bg-sky-50 rounded-md">
                                 <Info className="text-brand-sky mt-1 flex-shrink-0" size={24} />
                                 <div>
                                     <span className="font-semibold text-gray-700">요청사항:</span>
-                                    <p className="ml-2 text-gray-800 whitespace-pre-line">{requestDetails.notes}</p>
+                                    <p className="ml-2 text-gray-800 whitespace-pre-line">{reservationDetails.notes}</p>
                                 </div>
                             </div>
                         )}
 
-                        {requestDetails.phoneNumber && requestDetails.contactPreference === 'phone' && (
+                        {reservationDetails?.phoneNumber && reservationDetails?.contactPreference === 'phone' && (
                             <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-md">
                                 <Phone className="text-brand-navy mt-1 flex-shrink-0" size={24} />
                                 <div>
                                     <span className="font-semibold text-gray-700">연락처:</span>
-                                    <p className="ml-2 text-gray-800">{requestDetails.phoneNumber}</p>
+                                    <p className="ml-2 text-gray-800">{reservationDetails.phoneNumber}</p>
                                 </div>
                             </div>
                         )}
@@ -230,30 +265,34 @@ export default function HelperRequestDetailPage() {
                         onClick={handleContact}
                         variant="outline"
                         className="w-full sm:flex-1 btn-touch-lg border-brand-navy text-brand-navy hover:bg-brand-sky/20 bg-white flex items-center justify-center gap-2"
+                        disabled={!reservationDetails}
                     >
-                        {requestDetails.contactPreference === 'phone' ? (
+                        {reservationDetails?.contactPreference === 'phone' ? (
                             <Phone size={22} />
                         ) : (
                             <MessageSquare size={22} />
                         )}
                         <span>
-                            {requestDetails.contactPreference === 'phone' ? '어르신께 전화하기' : '어르신과 채팅하기'}
+                            {reservationDetails?.contactPreference === 'phone'
+                                ? '어르신께 전화하기'
+                                : '어르신과 채팅하기'}
                         </span>
                     </Button>
                     <Button
                         onClick={handleMarkAsHelped}
                         disabled={
-                            requestDetails.status === 'TICKET_PROPOSED' ||
-                            requestDetails.status === 'SEAT_CONFIRMED' ||
-                            requestDetails.status === 'COMPLETED'
+                            !reservationDetails ||
+                            reservationDetails.status === 'TICKET_PROPOSED' ||
+                            reservationDetails.status === 'SEAT_CONFIRMED' ||
+                            reservationDetails.status === 'COMPLETED'
                         }
                         className="w-full sm:flex-1 btn-touch-lg bg-brand-navy hover:bg-brand-navy-light text-white flex items-center justify-center gap-2"
                     >
                         <CheckCircle size={22} />
                         <span>
-                            {requestDetails.status === 'TICKET_PROPOSED' ||
-                            requestDetails.status === 'SEAT_CONFIRMED' ||
-                            requestDetails.status === 'COMPLETED'
+                            {reservationDetails?.status === 'TICKET_PROPOSED' ||
+                            reservationDetails?.status === 'SEAT_CONFIRMED' ||
+                            reservationDetails?.status === 'COMPLETED'
                                 ? '티켓 정보 전달 완료됨'
                                 : '티켓 정보 전달하기'}
                         </span>

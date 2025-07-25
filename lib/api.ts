@@ -1,3 +1,4 @@
+// lib/api.ts
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
@@ -7,6 +8,21 @@ export interface KboTeam {
     shortName?: string;
     logoUrl?: string;
     homeStadium?: string;
+}
+
+// Backend GameSerializer가 반환하는 Game 객체 상세 인터페이스 (백엔드에서 game이 객체로 올 경우 사용)
+export interface GameDetail {
+    gameId: number;
+    date: string; // YYYY-MM-DD 형식
+    time: string; // HH:MM:SS 형식
+    homeTeam: {
+        name: string; // TeamSerializer가 반환하는 이름
+        // 기타 TeamSerializer 필드 (id, shortName, logoUrl, homeStadium)
+    };
+    awayTeam: {
+        name: string;
+    };
+    stadium: string;
 }
 
 export interface DecodedToken {
@@ -20,17 +36,39 @@ export interface DecodedToken {
     mileagePoints?: number;
 }
 
+// 백엔드 API로부터 `getHelpRequestDetails`가 받는 원본 응답 데이터 구조
+export interface RawHelpRequestResponse {
+    requestId: number;
+    userId: {
+        id: number;
+        name: string;
+        phone: string; // userId 객체 안에 phone 필드 존재
+        role: string;
+        mileagePoints: number;
+    };
+    game: number; // 현재는 game ID (숫자)로 오고 있음
+    accompanyType: string;
+    additionalInfo: string; // 백엔드에서 notes 대신 additionalInfo로 옴
+    createdAt: string;
+    updatedAt: string;
+    numberOfTickets: number;
+    status: 'WAITING_FOR_HELPER' | 'HELPER_MATCHED' | 'TICKET_PROPOSED' | 'SEAT_CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+}
+
+// 프론트엔드 컴포넌트에서 사용할 최종 HelpRequest 인터페이스 (매핑 후)
 export interface HelpRequest {
     id: string;
     seniorFanName: string;
-    teamName: string;
-    gameDate: string;
-    gameTime?: string;
+    // teamName, gameDate, gameTime은 game 객체 또는 외부 조회로 채워짐
+    teamName: string; // Mapped
+    gameDate: string; // Mapped
+    gameTime?: string; // Mapped
+
     numberOfTickets: number;
-    notes?: string;
-    contactPreference: 'phone' | 'chat';
-    phoneNumber?: string;
-    status: 'REQUESTED' | 'IN_PROGRESS' | 'TICKET_PROPOSED' | 'SEAT_CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+    notes?: string; // Mapped from additionalInfo
+    contactPreference: 'phone' | 'chat'; // Derived
+    phoneNumber?: string; // Mapped from userId.phone
+    status: 'REQUESTED' | 'IN_PROGRESS' | 'TICKET_PROPOSED' | 'SEAT_CONFIRMED' | 'COMPLETED' | 'CANCELLED'; // 최종 UI 상태
     helperName?: string;
 }
 
@@ -61,7 +99,7 @@ api.interceptors.request.use(
     (config) => {
         if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
             const token = localStorage.getItem('authToken');
-            if (token && config.headers) {
+            if (config.headers) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
         }
@@ -90,7 +128,7 @@ const processQueue = (error: any, token: string | null = null) => {
     failedQueue = [];
 };
 
-const refreshAccessToken = async (): Promise<{ access: string; refresh?: string }> => {
+const refreshAccessToken = async (): Promise<{ access: string; refresh: string }> => {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) {
         throw new Error('No refresh token available');
@@ -287,11 +325,11 @@ export const getHelpRequests = async (params?: any): Promise<HelpRequest[]> => {
  * 도움 요청 상세 조회 (GET /requests/{requestId}/)
  * (API 명세서에 requests/{requestId}/로 되어 있어 해당 엔드포인트 사용)
  * @param requestId
- * @returns {Promise<HelpRequest>} Request 객체
+ * @returns {Promise<RawHelpRequestResponse>} Request 객체
  */
-export const getHelpRequestDetails = async (requestId: string): Promise<HelpRequest> => {
+export const getHelpRequestDetails = async (requestId: string): Promise<RawHelpRequestResponse> => {
     // 명세서: GET /api/requests/{requestId}/
-    const response = await api.get<HelpRequest>(`requests/${requestId}/`);
+    const response = await api.get<RawHelpRequestResponse>(`requests/${requestId}/`);
     return response.data;
 };
 
@@ -438,16 +476,15 @@ export interface HelperActivity {
     status: 'COMPLETED' | 'IN_PROGRESS';
 }
 
-export interface HelperStats {
-    totalSessionsCompleted: number;
-    mileagePoints: number;
-}
-
-// ✅ 함수 정의
 export const getHelperActivities = async (): Promise<HelperActivity[]> => {
     const response = await api.get('/helper/activities/');
     return response.data;
 };
+
+export interface HelperStats {
+    totalSessionsCompleted: number;
+    mileagePoints: number;
+}
 
 export const getHelperStats = async (): Promise<HelperStats> => {
     const response = await api.get('/mypage/stats/');
