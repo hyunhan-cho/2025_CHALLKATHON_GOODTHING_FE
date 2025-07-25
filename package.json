@@ -47,11 +47,11 @@
         "input-otp": "1.4.1",
         "jwt-decode": "^4.0.0",
         "lucide-react": "^0.454.0",
-        "next": "15.2.4",
+        "next": "^15.2.4",
         "next-themes": "^0.4.4",
-        "react": "^19",
+        "react": "^19.1.0",
         "react-day-picker": "8.10.1",
-        "react-dom": "^19",
+        "react-dom": "^19.1.0",
         "react-hook-form": "^7.54.1",
         "react-resizable-panels": "^2.1.7",
         "recharts": "2.15.0",
@@ -62,14 +62,14 @@
         "zod": "^3.24.1"
     },
     "devDependencies": {
+        "@types/axios": "^0.14.4",
+        "@types/jwt-decode": "^3.1.0",
         "@types/node": "^22",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "postcss": "^8.5",
         "tailwindcss": "^3.4.17",
-        "typescript": "^5",
-        "@types/axios": "^0.14.4",
-        "@types/jwt-decode": "^3.1.0"
+        "typescript": "^5"
     },
     "packageManager": "pnpm@10.12.3+sha512.467df2c586056165580ad6dfb54ceaad94c5a30f80893ebdec5a44c5aa73c205ae4a5bb9d5ed6bb84ea7c249ece786642bbb49d06a307df218d03da41c317417"
 }

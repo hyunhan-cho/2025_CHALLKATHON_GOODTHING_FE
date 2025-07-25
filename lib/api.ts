@@ -82,7 +82,7 @@ export interface ProposedTicketDetails {
     totalPrice: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/';
+const API_BASE_URL ='https://port-0-goodthing-rest-backend-mcge9of87641a8f6.sel5.cloudtype.app/api';
 
 if (!API_BASE_URL) {
     console.error('NEXT_PUBLIC_API_BASE_URL 환경 변수가 설정되지 않았습니다. .env.local 파일을 확인해주세요.');
@@ -185,7 +185,10 @@ api.interceptors.response.use(
                 if (typeof window !== 'undefined') {
                     localStorage.removeItem('authToken');
                     localStorage.removeItem('refreshToken');
-                    window.location.href = '/login';
+                    // /login 페이지에서 무한루프 방지
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login';
+                    }
                 }
                 return Promise.reject(refreshError);
             } finally {
