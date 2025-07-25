@@ -1,3 +1,4 @@
+// app/login/page.tsx
 'use client';
 
 import Link from 'next/link';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react'; // useState와 useEffect 임포트
+import { useEffect, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { loginUser } from '@/lib/api';
 
@@ -16,13 +17,12 @@ export default function LoginPage() {
     const searchParams = useSearchParams();
     const role = searchParams.get('role') || 'senior';
 
-    const [isSubmitting, setIsSubmitting] = useState(false); // 제출 중 상태 추가
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        console.log('handleSubmit 함수 호출됨'); // 디버깅용 로그 유지
+        console.log('handleSubmit 함수 호출됨');
 
         if (isSubmitting) {
-            // 이미 제출 중이면 중복 호출 방지
             console.log('이미 제출 중입니다. 중복 호출 방지.');
             return;
         }
@@ -37,7 +37,7 @@ export default function LoginPage() {
             return;
         }
 
-        setIsSubmitting(true); // 제출 시작 시 상태를 true로 설정
+        setIsSubmitting(true);
 
         try {
             const data = await loginUser({ phone, password });
@@ -75,22 +75,15 @@ export default function LoginPage() {
 
             alert('로그인 성공! 환영합니다.');
 
-            if (userRole === 'senior') {
-                router.push('/senior/select-team');
-            } else if (userRole === 'helper') {
-                router.push('/helper/dashboard');
-            } else {
-                alert('알 수 없는 사용자 역할입니다. 로그인 정보를 초기화합니다.');
-                localStorage.clear();
-                router.push('/login');
-            }
+            // 수정된 부분: 로그인 성공 후 홈 화면으로 리디렉션
+            window.location.href = '/';
         } catch (error: any) {
             console.error('로그인 중 에러 발생:', error);
 
             const errorMessage = error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다.';
             alert(`로그인 실패: ${errorMessage}\n(올바른 전화번호와 비밀번호를 입력했는지 확인해주세요.)`);
         } finally {
-            setIsSubmitting(false); // 제출 완료 후 상태를 false로 재설정 (성공/실패 모두)
+            setIsSubmitting(false);
         }
     };
 
@@ -117,7 +110,7 @@ export default function LoginPage() {
                                 placeholder="01012345678"
                                 className="h-14 text-lg px-4"
                                 required
-                                disabled={isSubmitting} // 제출 중일 때 Input 비활성화
+                                disabled={isSubmitting}
                             />
                         </div>
                         <div className="space-y-2">
@@ -130,13 +123,13 @@ export default function LoginPage() {
                                 placeholder="********"
                                 className="h-14 text-lg px-4"
                                 required
-                                disabled={isSubmitting} // 제출 중일 때 Input 비활성화
+                                disabled={isSubmitting}
                             />
                         </div>
                         <Button
                             type="submit"
                             className="w-full btn-touch-lg bg-brand-navy hover:bg-brand-navy-light text-white"
-                            disabled={isSubmitting} // 제출 중일 때 버튼 비활성화
+                            disabled={isSubmitting}
                         >
                             {isSubmitting ? '로그인 중...' : '로그인'}
                         </Button>
@@ -148,7 +141,7 @@ export default function LoginPage() {
                         <Button
                             variant="outline"
                             className="w-full btn-touch-lg border-brand-navy text-brand-navy hover:bg-brand-sky/30 bg-white"
-                            disabled={isSubmitting} // 제출 중일 때 회원가입 버튼도 비활성화
+                            disabled={isSubmitting}
                         >
                             회원가입
                         </Button>
