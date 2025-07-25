@@ -429,4 +429,29 @@ export const logoutUser = () => {
     }
 };
 
+// ✅ 타입 먼저 정의
+export interface HelperActivity {
+    id: string;
+    seniorFanName: string;
+    teamName: string;
+    gameDate: string;
+    status: 'COMPLETED' | 'IN_PROGRESS';
+}
+
+export interface HelperStats {
+    totalSessionsCompleted: number;
+    mileagePoints: number;
+}
+
+// ✅ 함수 정의
+export const getHelperActivities = async (): Promise<HelperActivity[]> => {
+    const response = await api.get('/helper/activities/');
+    return response.data;
+};
+
+export const getHelperStats = async (): Promise<HelperStats> => {
+    const response = await api.get('/mypage/stats/');
+    return response.data;
+};
+
 export default api; // axios 인스턴스를 기본 내보내기로 설정
