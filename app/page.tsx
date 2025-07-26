@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react'; // useState, useEffect, useCallback 훅 임포트
-import { useRouter } from 'next/navigation'; // useRouter 훅 임포트
+import { useRouter, usePathname } from 'next/navigation'; // useRouter, usePathname 훅 임포트
 import { jwtDecode } from 'jwt-decode'; // jwtDecode 임포트
 import RoleMismatchModal from '@/components/RoleMismatchModal'; // 새로 생성한 모달 임포트
 import { getHelperActivities, getHelperStats, HelperActivity, HelperStats } from '@/lib/api';
 
 export default function LandingPage() {
     const router = useRouter();
+    const pathname = usePathname();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [showRoleMismatchModal, setShowRoleMismatchModal] = useState(false); // 역할 불일치 모달 표시 상태
@@ -62,7 +63,7 @@ export default function LandingPage() {
     // 컴포넌트 마운트 시 및 라우터 경로 변경 시 인증 상태 업데이트
     useEffect(() => {
         updateAuthStatus();
-    }, [router.pathname, updateAuthStatus]);
+    }, [pathname, updateAuthStatus]);
 
     // 윈도우의 storage 이벤트를 수신하여 localStorage 변경 감지 (같은 도메인 내 다른 탭/창에서 로그인/로그아웃 시)
     useEffect(() => {
