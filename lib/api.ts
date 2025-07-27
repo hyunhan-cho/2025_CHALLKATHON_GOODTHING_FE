@@ -96,16 +96,10 @@ export interface ProposedTicketDetails {
 const API_BASE_URL =
     'https://port-0-goodthing-rest-backend-mcge9of87641a8f6.sel5.cloudtype.app/api/';
 
-if (!API_BASE_URL) {
-    console.error('API_BASE_URL is not set. Please check your environment variables.');
-}
-
 const api = axios.create({
     baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    withCredentials: true, // 🔥 쿠키 전송
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true, // 🔥 refresh token 쿠키 자동 전송
 });
 
 let isRefreshing = false;
@@ -113,11 +107,8 @@ let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) 
 
 const processQueue = (error: any, token: string | null = null) => {
     failedQueue.forEach((prom) => {
-        if (error) {
-            prom.reject(error);
-        } else if (token) {
-            prom.resolve(token);
-        }
+        if (error) prom.reject(error);
+        else if (token) prom.resolve(token);
     });
     failedQueue = [];
 };
@@ -125,11 +116,9 @@ const processQueue = (error: any, token: string | null = null) => {
 // 요청 인터셉터
 api.interceptors.request.use(
     (config) => {
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
@@ -142,13 +131,9 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // 🔥 공개 API는 refresh token 로직 건너뛰기
-        if (
-            originalRequest.url.includes('auth/login') ||
-            originalRequest.url.includes('auth/signup') ||
-            originalRequest.url.includes('teams') ||
-            originalRequest.url.includes('games')
-        ) {
+        // 🔥 공개 API는 refresh token 검사 건너뛰기
+        const skipRefreshUrls = ['/auth/login', '/auth/signup', '/teams', '/games'];
+        if (skipRefreshUrls.some((url) => originalRequest.url?.includes(url))) {
             return Promise.reject(error);
         }
 
@@ -156,25 +141,23 @@ api.interceptors.response.use(
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
-                })
-                    .then((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`;
-                        return api(originalRequest);
-                    })
-                    .catch((err) => Promise.reject(err));
+                }).then((token) => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return api(originalRequest);
+                });
             }
 
             originalRequest._retry = true;
             isRefreshing = true;
 
             try {
-                // 🔥 refresh token은 HttpOnly 쿠키로 전송됨
                 const { data } = await axios.post(
                     `${API_BASE_URL}auth/refresh/`,
                     {},
                     { withCredentials: true }
                 );
 
+                // 새 access token 저장
                 localStorage.setItem('authToken', data.access);
 
                 processQueue(null, data.access);
@@ -200,7 +183,7 @@ api.interceptors.response.use(
 // 3. API 호출 함수
 // =================================================================
 
-// 3.1 인증 (Auth)
+// 인증
 export const registerUser = async (userData: any) => {
     const response = await api.post('auth/signup/', userData);
     return response.data;
@@ -211,11 +194,10 @@ export const loginUser = async (credentials: { phone: string; password: string }
     if (response.data.access) {
         localStorage.setItem('authToken', response.data.access);
     }
-    // refresh token은 쿠키로 내려오기 때문에 localStorage 저장 ❌
     return response.data;
 };
 
-// 3.2 사용자 (User)
+// 사용자
 export const getUserProfile = async () => {
     const response = await api.get('users/me/');
     return response.data;
@@ -226,22 +208,13 @@ export const updateUserProfile = async (userData: any) => {
     return response.data;
 };
 
-// 3.3 팀 및 경기 정보
+// 팀/게임 정보
 export const getKboTeams = async (): Promise<KboTeam[]> => {
-    try {
-        // 🔥 axios → api로 변경
-        const response = await api.get<KboTeam[]>('teams/');
-        return response.data.map((team) => ({
-            ...team,
-            name: team.shortName,
-        }));
-    } catch (error: any) {
-        if (error.response?.status === 401) {
-            // 인증 필요 없는 API에서 401이면 빈 배열 반환
-            return [];
-        }
-        throw error;
-    }
+    const response = await api.get<KboTeam[]>('teams/');
+    return response.data.map((team) => ({
+        ...team,
+        name: team.shortName,
+    }));
 };
 
 export const getGames = async (params?: { date?: string; team?: string }) => {
@@ -249,7 +222,7 @@ export const getGames = async (params?: { date?: string; team?: string }) => {
     return response.data;
 };
 
-// 3.4 도움 요청 (Request)
+// 요청 관련
 export const createHelpRequest = async (payload: {
     seniorId: string;
     teamId: string;
@@ -265,9 +238,7 @@ export const getHelpRequests = async (params?: any): Promise<HelpRequest[]> => {
     return response.data;
 };
 
-export const getHelpRequestDetails = async (
-    requestId: string
-): Promise<RawHelpRequestResponse> => {
+export const getHelpRequestDetails = async (requestId: string) => {
     const response = await api.get<RawHelpRequestResponse>(`requests/${requestId}/`);
     return response.data;
 };
@@ -277,11 +248,8 @@ export const completeHelpRequest = async (requestId: string) => {
     return response.data;
 };
 
-// 3.5 제안 (Proposal)
-export const createProposal = async (
-    requestId: string,
-    payload: { ticketInfo: string; message: string }
-) => {
+// 제안 관련
+export const createProposal = async (requestId: string, payload: any) => {
     const response = await api.post(`requests/${requestId}/proposals/create/`, payload);
     return response.data;
 };
@@ -301,9 +269,9 @@ export const rejectProposal = async (proposalId: string) => {
     return response.data;
 };
 
-// 3.6 마이페이지 (MyPage)
-export const getMySeniorRequests = async (): Promise<HelpRequest[]> => {
-    const response = await api.get<HelpRequest[]>('senior/requests/');
+// 마이페이지
+export const getMySeniorRequests = async () => {
+    const response = await api.get('senior/requests/');
     return response.data;
 };
 
@@ -317,10 +285,8 @@ export const getMyStats = async () => {
     return response.data;
 };
 
-// 3.7 시니어 전용 API
-export const getProposedTicketDetails = async (
-    requestId: string
-): Promise<ProposedTicketDetails> => {
+// 시니어 전용
+export const getProposedTicketDetails = async (requestId: string) => {
     const response = await api.get<ProposedTicketDetails>(
         `senior/requests/${requestId}/proposed-ticket/`
     );
@@ -328,16 +294,11 @@ export const getProposedTicketDetails = async (
 };
 
 export const confirmProposedTicket = async (requestId: string) => {
-    const response = await api.post(
-        `senior/requests/${requestId}/confirm-ticket/`
-    );
+    const response = await api.post(`senior/requests/${requestId}/confirm-ticket/`);
     return response.data;
 };
 
-// =================================================================
-// 4. 헬퍼 활동 관련 API
-// =================================================================
-
+// 헬퍼 활동
 export interface HelperActivity {
     id: string;
     seniorFanName: string;
@@ -361,18 +322,13 @@ export const getHelperStats = async (): Promise<HelperStats> => {
     return response.data;
 };
 
-// =================================================================
-// 5. 유틸리티 함수
-// =================================================================
-
+// 로그아웃
 export const logoutUser = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userMileagePoints');
-    }
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userMileagePoints');
 };
 
 export default api;
