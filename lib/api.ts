@@ -148,6 +148,11 @@ api.interceptors.response.use(
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // SSR 환경(localStorage 없음) 방어
+            if (typeof window === 'undefined') {
+                // 서버 환경에서는 토큰 갱신 불가, 즉시 에러 반환
+                return Promise.reject(new Error('No refresh token available (SSR 환경).'));
+            }
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -179,7 +184,7 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 logoutUser();
-                if (window.location.pathname !== '/login') {
+                if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
                     window.location.href = '/login';
                 }
                 return Promise.reject(refreshError);
