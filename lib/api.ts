@@ -15,8 +15,8 @@ export interface KboTeam {
 
 export interface GameDetail {
     gameId: number;
-    date: string; // YYYY-MM-DD
-    time: string; // HH:MM:SS
+    date: string;
+    time: string;
     homeTeam: { name: string };
     awayTeam: { name: string };
     stadium: string;
@@ -142,6 +142,16 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // 🔥 공개 API는 refresh token 로직 건너뛰기
+        if (
+            originalRequest.url.includes('auth/login') ||
+            originalRequest.url.includes('auth/signup') ||
+            originalRequest.url.includes('teams') ||
+            originalRequest.url.includes('games')
+        ) {
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
@@ -219,7 +229,8 @@ export const updateUserProfile = async (userData: any) => {
 // 3.3 팀 및 경기 정보
 export const getKboTeams = async (): Promise<KboTeam[]> => {
     try {
-        const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`);
+        // 🔥 axios → api로 변경
+        const response = await api.get<KboTeam[]>('teams/');
         return response.data.map((team) => ({
             ...team,
             name: team.shortName,
