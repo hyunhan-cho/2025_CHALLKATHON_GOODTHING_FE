@@ -5,16 +5,14 @@ import { jwtDecode } from 'jwt-decode';
 // 1. 타입 정의 (Interfaces)
 // =================================================================
 
-/** KBO 팀 정보 */
 export interface KboTeam {
-    id: number; 
-    name: string; 
+    id: number;
+    name: string;
     shortName: string;
     homeStadium: string;
     logoUrl?: string;
 }
 
-/** 경기 상세 정보 (백엔드에서 game이 객체로 올 경우 대비) */
 export interface GameDetail {
     gameId: number;
     date: string; // YYYY-MM-DD
@@ -24,7 +22,6 @@ export interface GameDetail {
     stadium: string;
 }
 
-/** JWT 토큰 디코딩 후 포함될 정보 */
 export interface DecodedToken {
     token_type: string;
     exp: number;
@@ -36,7 +33,6 @@ export interface DecodedToken {
     mileagePoints?: number;
 }
 
-/** 백엔드 API 원본 도움 요청 응답 */
 export interface RawHelpRequestResponse {
     requestId: number;
     userId: {
@@ -46,7 +42,7 @@ export interface RawHelpRequestResponse {
         role: string;
         mileagePoints: number;
     };
-    game: GameDetail; // **객체로 수정**
+    game: GameDetail;
     accompanyType: string;
     additionalInfo: string;
     createdAt: string;
@@ -61,7 +57,6 @@ export interface RawHelpRequestResponse {
         | 'CANCELLED';
 }
 
-/** 프론트엔드에서 사용할 도움 요청 정보 */
 export interface HelpRequest {
     id: string;
     seniorFanName: string;
@@ -84,7 +79,6 @@ export interface HelpRequest {
     helperName?: string;
 }
 
-/** 제안된 티켓 상세 정보 */
 export interface ProposedTicketDetails {
     requestId: string;
     helperName: string;
@@ -111,6 +105,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    withCredentials: true, // 🔥 쿠키 전송
 });
 
 let isRefreshing = false;
@@ -141,18 +136,13 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// 응답 인터셉터
+// 응답 인터셉터 (401 토큰 만료 시)
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
-            // SSR 환경(localStorage 없음) 방어
-            if (typeof window === 'undefined') {
-                // 서버 환경에서는 토큰 갱신 불가, 즉시 에러 반환
-                return Promise.reject(new Error('No refresh token available (SSR 환경).'));
-            }
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -168,15 +158,14 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const refreshToken = localStorage.getItem('refreshToken');
-                if (!refreshToken) throw new Error('No refresh token available.');
-
-                const { data } = await axios.post(`${API_BASE_URL}auth/token/refresh/`, {
-                    refresh: refreshToken,
-                });
+                // 🔥 refresh token은 HttpOnly 쿠키로 전송됨
+                const { data } = await axios.post(
+                    `${API_BASE_URL}auth/refresh/`,
+                    {},
+                    { withCredentials: true }
+                );
 
                 localStorage.setItem('authToken', data.access);
-                if (data.refresh) localStorage.setItem('refreshToken', data.refresh);
 
                 processQueue(null, data.access);
                 originalRequest.headers.Authorization = `Bearer ${data.access}`;
@@ -208,13 +197,11 @@ export const registerUser = async (userData: any) => {
 };
 
 export const loginUser = async (credentials: { phone: string; password: string }) => {
-    const response = await api.post('auth/login/', credentials);
+    const response = await api.post('auth/login/', credentials, { withCredentials: true });
     if (response.data.access) {
         localStorage.setItem('authToken', response.data.access);
     }
-    if (response.data.refresh) {
-        localStorage.setItem('refreshToken', response.data.refresh);
-    }
+    // refresh token은 쿠키로 내려오기 때문에 localStorage 저장 ❌
     return response.data;
 };
 
@@ -231,7 +218,7 @@ export const updateUserProfile = async (userData: any) => {
 
 // 3.3 팀 및 경기 정보
 export const getKboTeams = async (): Promise<KboTeam[]> => {
-    const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`);
+    const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`, { withCredentials: true });
     return response.data.map((team) => ({
         ...team,
         name: team.shortName,
@@ -362,7 +349,6 @@ export const getHelperStats = async (): Promise<HelperStats> => {
 export const logoutUser = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('authToken');
-        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         localStorage.removeItem('userId');
         localStorage.removeItem('userName');
