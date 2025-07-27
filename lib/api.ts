@@ -218,12 +218,19 @@ export const updateUserProfile = async (userData: any) => {
 
 // 3.3 팀 및 경기 정보
 export const getKboTeams = async (): Promise<KboTeam[]> => {
-    // 👇 { withCredentials: true } 완전히 삭제 (불필요)
-    const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`);
-    return response.data.map((team) => ({
-        ...team,
-        name: team.shortName,
-    }));
+    try {
+        const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`);
+        return response.data.map((team) => ({
+            ...team,
+            name: team.shortName,
+        }));
+    } catch (error: any) {
+        if (error.response?.status === 401) {
+            // 인증 필요 없는 API에서 401이면 빈 배열 반환
+            return [];
+        }
+        throw error;
+    }
 };
 
 export const getGames = async (params?: { date?: string; team?: string }) => {
