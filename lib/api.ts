@@ -218,7 +218,8 @@ export const updateUserProfile = async (userData: any) => {
 
 // 3.3 팀 및 경기 정보
 export const getKboTeams = async (): Promise<KboTeam[]> => {
-    const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`, { withCredentials: true });
+    // 👇 { withCredentials: true } 완전히 삭제 (불필요)
+    const response = await axios.get<KboTeam[]>(`${API_BASE_URL}teams/`);
     return response.data.map((team) => ({
         ...team,
         name: team.shortName,
