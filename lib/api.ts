@@ -117,8 +117,24 @@ const processQueue = (error: any, token: string | null = null) => {
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('authToken');
+        const publicUrls = ['/auth/login', '/auth/signup', '/teams', '/games'];
+
+        // 요청 URL이 공개 API 목록에 포함되면, Authorization 헤더 없이 바로 보냅니다.
+        if (publicUrls.some((url) => config.url?.includes(url))) {
+            return config;
+        }
+
+        // 그 외의 모든 보호된 API에 대해서만 토큰을 추가합니다.
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+            try {
+                // 추가: 토큰이 만료되었는지 미리 확인해서 만료된 토큰은 보내지 않도록 방어
+                const decodedToken: { exp: number } = jwtDecode(token);
+                if (decodedToken.exp * 1000 > Date.now()) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+            } catch (e) {
+                console.error("Invalid token found", e);
+            }
         }
         return config;
     },
