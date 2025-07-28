@@ -93,8 +93,7 @@ export interface ProposedTicketDetails {
 // 2. Axios 인스턴스 및 인터셉터 설정
 // =================================================================
 
-const API_BASE_URL =
-  'https://port-0-goodthing-rest-backend-mcge9of87641a8f6.sel5.cloudtype.app/api/';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'https://port-0-goodthing-rest-backend-mcge9of87641a8f6.sel5.cloudtype.app') + '/api/';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
