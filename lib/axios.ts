@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const customAxios = axios.create({
-    baseURL: 'http://127.0.0.1:8000',
+    baseURL: 'https://port-0-goodthing-rest-backend-mcge9of87641a8f6.sel5.cloudtype.app',
     withCredentials: true,
 });
 
